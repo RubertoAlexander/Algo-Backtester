@@ -1,89 +1,98 @@
-import pandas as pd
-import numpy
-import yfinance as yf
 from talib._ta_lib import *
 import tulipy as ti
+import pandas as pd
 
-ticker = yf.Ticker('MSB.AX')
-history = ticker.history(period='1mo', interval='5m')
-history = history.drop(columns=['Volume', 'Dividends', 'Stock Splits'])
+from Stock import Stock
 
-openList = history['Open']
-highList = history['High']
-lowList = history['Low']
-closeList = history['Close']
+class Strategy:
+    
+    def __init__(self):
+        self.buyCount = 0
+        self.sellCount = 0
+        self.capital = 5000
+        self.positionOpen = False
+        self.units = 0
+        self.boughtAt = 0.00
 
-posDI = PLUS_DI(high=highList, low=lowList, close=closeList, timeperiod=14)
-negDI = MINUS_DI(high=highList, low=lowList, close=closeList, timeperiod=14)
-rsi = RSI(closeList, timeperiod=14)
-stochk, stochd = STOCH(high=highList, low=lowList, close=closeList, fastk_period=5, slowk_period=3, slowd_period=3)
+        self.watchlist = ['APT.AX', 'Z1P.AX', 'MSB.AX']
 
-data = {'Close': closeList, 'PosDI':posDI, 'NegDI':negDI, 'RSI':rsi, 'StochK': stochk, 'StochD':stochd}
-df = pd.DataFrame(data)
+    def defineIndicators(self, stock):
+        stock.posDI = PLUS_DI(high=stock.highList, low=stock.lowList, close=stock.closeList, timeperiod=14)
+        stock.negDI = MINUS_DI(high=stock.highList, low=stock.lowList, close=stock.closeList, timeperiod=14)
+        stock.rsi = RSI(stock.closeList, timeperiod=14)
+        stock.stochk, stock.stochd = STOCH(high=stock.highList, low=stock.lowList, close=stock.closeList, fastk_period=5, slowk_period=3, slowd_period=3)
 
-print(df)
+    # data = {'Close': stock.closeList, 'PosDI':posDI, 'NegDI':negDI, 'RSI':rsi, 'StochK': stochk, 'StochD':stochd}
+    # df = pd.DataFrame(data)
 
-buyCount = 0
-sellCount = 0
+    # print(df)
 
-capital = 5000
-positionOpen = False
-units = 0
-boughtAt = 0.00
+    def buy(self, price):
+        self.boughtAt = price
+        self.units = int(self.capital / price)
+        self.capital -= self.boughtAt * self.units
+        self.buyCount += 1
+        self.positionOpen = True
+        print('Bought ', self.units, ' units at ', price)
 
+    def sell(self, price):
+        self.capital += self.units * price
+        self.sellCount += 1
+        self.positionOpen = False
+        print('Sold ', self.units, ' units at ', price)
 
-i = 14
-while i < closeList.size:
+    def run(self):
 
-    #DMI
-    isMovingPos = posDI[i] > negDI[i]
-    isMovingNeg = posDI[i] < negDI[i]
+        tickers = []
+        for stock in self.watchlist:
+            ticker = Stock(stock)
+            tickers.append(ticker)
+            ticker.getData('1mo', '5m')
+            self.defineIndicators(ticker)
 
-    #RSI
-    isRSIOversold = rsi[i] < 30
-    isRSIOverbought = rsi[i] > 70
+        i = 14
+        while i < tickers[0].closeList.size:
 
-    #Stochastics
-    isStochKOversold = stochk[i] < 20
-    isStochKOverbought = stochk[i] > 80
-    isStochDOversold = stochd[i] < 20
-    isStochDOverbought = stochd[i] > 80
+            j = 0
+            for stock in tickers:
 
-    stochCrossedUp = (stochk[i] > stochd[i]) & (stochk[i - 1] < stochd[i - 1])
-    stochCrossedDown = (stochk[i] < stochd[i]) & (stochk[i - 1] > stochd[i - 1])
+                #DMI
+                isMovingPos = stock.posDI[i] > stock.negDI[i]
+                isMovingNeg = stock.posDI[i] < stock.negDI[i]
 
-    stochBuy = isStochKOversold & isStochDOversold & stochCrossedUp
-    stochSell = isStochKOverbought & isStochDOverbought & stochCrossedDown
+                #RSI
+                isRSIOversold = stock.rsi[i] < 30
+                isRSIOverbought = stock.rsi[i] > 70
 
-    #Buy Indicator
-    if isMovingPos:
-        if (isRSIOversold | stochCrossedUp):
-            if not positionOpen:
-                boughtAt = closeList[i]
-                units = int(capital / boughtAt)
-                capital -= boughtAt * units
-                buyCount += 1
-                positionOpen = True
-    elif (isRSIOversold & stochBuy):
-        if not positionOpen:
-            boughtAt = closeList[i]
-            units = int(capital / boughtAt)
-            capital -= boughtAt * units
-            buyCount += 1
-            positionOpen = True
+                #Stochastics
+                isStochKOversold = stock.stochk[i] < 20
+                isStochKOverbought = stock.stochk[i] > 80
+                isStochDOversold = stock.stochd[i] < 20
+                isStochDOverbought = stock.stochd[i] > 80
 
-    if stochSell | isRSIOverbought:
-        if positionOpen & (closeList[i] > boughtAt):
-            boughtAt = 0
-            capital += units * closeList[i]
-            sellCount += 1
-            positionOpen = False
-    elif positionOpen & (closeList.index[i].hour == 15):
-        boughtAt = 0
-        capital += units * closeList[i]
-        sellCount += 1
-        positionOpen = False
-    i+=1
+                stochCrossedUp = (stock.stochk[i] > stock.stochd[i]) & (stock.stochk[i - 1] < stock.stochd[i - 1])
+                stochCrossedDown = (stock.stochk[i] < stock.stochd[i]) & (stock.stochk[i - 1] > stock.stochd[i - 1])
 
-print('Buys: ', buyCount, '\n', 'Sells: ', sellCount)
-print(capital)
+                stochBuy = isStochKOversold & isStochDOversold & stochCrossedUp
+                stochSell = isStochKOverbought & isStochDOverbought & stochCrossedDown
+
+                #Buy Indicator
+                if isMovingPos:
+                    if (isRSIOversold | stochCrossedUp):
+                        if not self.positionOpen:
+                            self.buy(stock.closeList[i])
+                elif (isRSIOversold & stochBuy):
+                    if not self.positionOpen:
+                        self.buy(stock.closeList[i])
+
+                #Sell Indicator
+                if stochSell | isRSIOverbought:
+                    if self.positionOpen & (stock.closeList[i] > self.boughtAt):
+                        self.sell(stock.closeList[i])
+                # elif self.positionOpen & (self.stock.closeList.index[i].hour == 15):
+                #     self.sell(self.stock.closeList[i])
+                j+=1
+            i+=1
+
+        print('Buys: ', self.buyCount, '\n', 'Sells: ', self.sellCount)
+        print(self.capital + self.boughtAt * self.units)
