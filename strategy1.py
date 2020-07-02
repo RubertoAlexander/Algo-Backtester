@@ -4,27 +4,31 @@ from Stock import Stock
 
 class Strategy:
     
+    FEES = 10
+
     def __init__(self):
         self.buyCount = 0
         self.sellCount = 0
         self.capital = 5000
-        self.positionOpen = False
+        self.positionOpen = ''
         self.units = 0
         self.boughtAt = 0.00
 
         self.watchlist = ['AGH.AX', 'BIT.AX', 'BOT.AX', 'CYP.AX', 'DRO.AX', 'DW8.AX', 'IMU.AX', 'ISD.AX', 
                         'MSB.AX', 'NXS.AX', 'OCC.AX', 'PAA.AX', 'RAP.AX', 'Z1P.AX']
+        self.positions = {}
 
     def buy(self, code, price):
         self.boughtAt = price
         self.units = int(self.capital / price)
-        self.capital -= self.boughtAt * self.units
+        self.capital -= self.boughtAt * self.units - self.FEES
         self.buyCount += 1
         self.positionOpen = code
+        #self.positions[code] = {price: units}
         print('Bought', self.units, 'units of', code, 'at', price)
 
     def sell(self, price):
-        self.capital += self.units * price
+        self.capital += self.units * price - self.FEES
         self.sellCount += 1
         self.positionOpen = ''
         print('Sold', self.units, 'units at', price)
@@ -35,7 +39,7 @@ class Strategy:
         for stock in self.watchlist:
             ticker = Stock(stock)
             tickers.append(ticker)
-            ticker.getData('1mo', '15m')
+            ticker.getData('1y', '1d')
             ticker.defineIndicators()
 
         i = 14
@@ -63,12 +67,12 @@ class Strategy:
                     stochCrossedUp = (stock.stochk[i] > stock.stochd[i]) & (stock.stochk[i - 1] < stock.stochd[i - 1])
                     stochCrossedDown = (stock.stochk[i] < stock.stochd[i]) & (stock.stochk[i - 1] > stock.stochd[i - 1])
 
-                    stochBuy = isStochKOversold & isStochDOversold & stochCrossedUp
-                    stochSell = isStochKOverbought & isStochDOverbought & stochCrossedDown
+                    stochBuy = isStochKOversold & stochCrossedUp
+                    stochSell = isStochKOverbought & stochCrossedDown
 
                     #Buy Indicator
                     if isMovingPos:
-                        if (isRSIOversold | stochCrossedUp):
+                        if (isRSIOversold | stochBuy):
                             if not self.positionOpen:
                                 self.buy(stock.code, stock.closeList[i])
                     elif (isRSIOversold & stochBuy):
