@@ -10,28 +10,12 @@ class Strategy:
         self.buyCount = 0
         self.sellCount = 0
         self.capital = 5000
-        self.positionOpen = ''
-        self.units = 0
-        self.boughtAt = 0.00
+        self.risk = 0.1
+        self.maxPosition = 5000
 
         self.watchlist = ['AGH.AX', 'BIT.AX', 'BOT.AX', 'CYP.AX', 'DRO.AX', 'DW8.AX', 'IMU.AX', 'ISD.AX', 
                         'MSB.AX', 'NXS.AX', 'OCC.AX', 'PAA.AX', 'RAP.AX', 'Z1P.AX']
         self.positions = {}
-
-    def buy(self, code, price):
-        self.boughtAt = price
-        self.units = int(self.capital / price)
-        self.capital -= self.boughtAt * self.units - self.FEES
-        self.buyCount += 1
-        self.positionOpen = code
-        #self.positions[code] = {price: units}
-        print('Bought', self.units, 'units of', code, 'at', price)
-
-    def sell(self, price):
-        self.capital += self.units * price - self.FEES
-        self.sellCount += 1
-        self.positionOpen = ''
-        print('Sold', self.units, 'units at', price)
 
     def run(self):
 
@@ -45,7 +29,7 @@ class Strategy:
         i = 14
         print(tickers[0].closeList.size)
         
-        while i < tickers[0].closeList.size - 1:
+        while i < tickers[0].closeList.size:
             for stock in tickers:
 
                 if i < stock.closeList.size:
@@ -71,23 +55,57 @@ class Strategy:
                     stochSell = isStochKOverbought & stochCrossedDown
 
                     #Buy Indicator
-                    if isMovingPos:
-                        if (isRSIOversold | stochBuy):
-                            if not self.positionOpen:
-                                self.buy(stock.code, stock.closeList[i])
-                    elif (isRSIOversold & stochBuy):
-                        if not self.positionOpen:
-                            self.buy(stock.code, stock.closeList[i])
+                    if self.capital >= 500 & stock.units == 0:
+                        if isMovingPos:
+                            if (isRSIOversold | stochBuy):
+                                self.buy(stock, stock.closeList[i])
+                        elif (isRSIOversold & stochBuy):
+                            self.buy(stock, stock.closeList[i])
 
                     #Sell Indicator
-                    if self.positionOpen == stock.code:
+                    if stock.units > 0:
                         if stochSell | isRSIOverbought:
-                            if stock.closeList[i] > self.boughtAt:
-                                self.sell(stock.closeList[i])
+                            if stock.closeList[i] > stock.boughtAt:
+                                self.sell(stock, stock.closeList[i])
                         # elif stock.closeList.index[i].hour == 15:
                         #     self.sell(stock.closeList[i])
 
+                        # if i == stock.closeList.size - 1:
+                        #     self.sell(stock, stock.closeList[i])
             i+=1
 
         print('Buys: ', self.buyCount, '\n', 'Sells: ', self.sellCount)
-        print(self.capital + self.boughtAt * self.units)
+        print(self.capital)
+
+        value = self.capital
+        for stock in tickers:
+            value += stock.units * stock.closeList[stock.closeList.size - 1]
+
+        print('Value: ', value)
+
+    def buy(self, stock, price):
+        stock.boughtAt = price
+        stock.units = int(self.positionSize() / price) + 1
+        self.capital -= (price * stock.units) + self.FEES
+        self.buyCount += 1
+        self.positionOpen = True
+        #self.positions[code] = {price: units}
+        print('Bought', stock.units, 'units of', stock.code, 'at', price)
+        print('Capital: ', self.capital)
+
+    def sell(self, stock, price):
+        self.capital += stock.units * price - self.FEES
+        print('Sold', stock.units, 'units of', stock.code, 'at', price)
+        print('Capital:', self.capital)
+        stock.boughtAt = 0.00
+        stock.units = 0
+        self.sellCount += 1
+        self.positionOpen = False
+
+    def positionSize(self):
+        if self.capital > 500:
+            if self.capital * self.risk > 500:
+                return self.capital * risk
+            else: return 500
+        else: return 0
+        
