@@ -6,8 +6,6 @@ class Stock:
     def __init__(self, code):
         self.code = code
         self.ticker = yf.Ticker(code)
-        self.units = 0
-        self.boughtAt = 0.00
         self.greenLight = False
 
     def getData(self, period, interval):

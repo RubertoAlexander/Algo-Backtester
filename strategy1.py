@@ -1,17 +1,19 @@
 import pandas as pd
 
 from Stock import Stock
+from Holding import Holding
 
 class Strategy:
     
     #Class Variables
     FEES = 10
     capital = 5000
-    minPos = 5000
+    minPos = 1000
     watchlist = ['AGH.AX','BIT.AX', 'BOT.AX', 'CYP.AX', 'DRO.AX', 'DW8.AX', 'IMU.AX', 'ISD.AX', 
                  'MSB.AX', 'NXS.AX', 'OCC.AX', 'PAA.AX', 'Z1P.AX']
 
     toPurchase = []
+    holdings = []
 
     #Instance Variables
     def __init__(self):
@@ -21,7 +23,7 @@ class Strategy:
     def run(self):
     
         #Retrieve stock data
-        tickers = self.getStocks()                    
+        tickers = self.getStocks()
 
         i = 14
         j = 0
@@ -35,8 +37,10 @@ class Strategy:
                         self.toPurchase.append(stock)
                     elif (self.getGreenLight(stock, i) == 'Sell') & (self.toPurchase.__contains__(stock)):
                         self.toPurchase.remove(stock)
-                        if stock.units > 0:
-                            self.sell(stock, stock.dailyCloseList[i])
+
+                        for holding in self.holdings:
+                            if holding.stock == stock:
+                                self.sell(holding, stock.dailyCloseList[i])
 
                     day = stock.dailyCloseList.axes[0].date[i]
 
@@ -72,18 +76,20 @@ class Strategy:
                             stochSell = isStochKOverbought & stochCrossedDown
 
                             #Buy Indicator
-                            if stock.units == 0:
-                                if isMovingPos:
-                                    if (isRSIOversold | stochBuy):
-                                        self.buy(stock, stock.closeList[j])
-                                elif (isRSIOversold & stochBuy):
+                            if isMovingPos:
+                                if (isRSIOversold | stochBuy):
                                     self.buy(stock, stock.closeList[j])
+                            elif (isRSIOversold & stochBuy):
+                                self.buy(stock, stock.closeList[j])
 
                             #Sell Indicator
-                            if stock.units > 0:
+                            if self.haveHolding(stock):
                                 if stochSell | isRSIOverbought:
-                                    if stock.closeList[j] > stock.boughtAt:
-                                        self.sell(stock, stock.closeList[j])
+                                    #Can retrieve number of holdings that can sell and combine into
+                                    for holding in self.holdings:
+                                        if holding.stock == stock:
+                                            if stock.closeList[j] > holding.boughtAt:
+                                                self.sell(holding, stock.closeList[j])
 
                             j+=1
                         j = 0
@@ -93,8 +99,8 @@ class Strategy:
         print(self.capital)
 
         value = self.capital
-        for stock in tickers:
-            value += stock.units * stock.closeList[stock.closeList.size - 1]
+        for holding in self.holdings:
+            value += holding.units * holding.stock.closeList[holding.stock.closeList.size - 1]
 
         print('Value: ', value)
 
@@ -141,33 +147,38 @@ class Strategy:
             return 'Buy'
 
         if stochSell | isRSIOverbought:
-            if stock.closeList[index] > stock.boughtAt:
-                return 'Sell'
+            return 'Sell'
 
     def buy(self, stock, price):
         posSize = self.positionSize()
         if posSize > 0:
-            stock.boughtAt = price
-            stock.units = int(posSize / price)
-            self.capital -= (price * stock.units) + self.FEES
+            
+            units = int(posSize / price)
+            self.holdings.append(Holding(stock, units, price))
+            self.capital -= (price * units) + self.FEES
             self.buyCount += 1
-            self.positionOpen = True
 
-            print('Bought', stock.units, 'units of', stock.code, 'at', price)
+            print('Bought', units, 'units of', stock.code, 'at', price)
             print('Capital: ', self.capital)
 
-    def sell(self, stock, price):
-        self.capital += stock.units * price - self.FEES
-        print('Sold', stock.units, 'units of', stock.code, 'at', price)
+    def sell(self, holding, price):
+        self.capital += holding.units * price - self.FEES
+        self.holdings.remove(holding)
+
+        print('Sold', holding.units, 'units of', holding.stock.code, 'at', price)
         print('Capital:', self.capital)
-        stock.boughtAt = 0.00
-        stock.units = 0
         self.sellCount += 1
-        self.positionOpen = False
 
     def positionSize(self):
         if self.capital < self.minPos:
             return 0
         else: 
             return self.minPos - self.FEES
+
+    def haveHolding(self, stock):
+        for holding in self.holdings:
+            if holding.stock == stock:
+                return True
+        
+        return False
         
