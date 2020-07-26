@@ -1,14 +1,15 @@
 import pandas as pd
 
+from StrategyBuilder import StrategyBuilder
 from Stock import Stock
 from Holding import Holding
 
-class Strategy:
+class System:
     
     #Class Variables
     FEES = 10
-    capital = 5000
-    minPos = 1000
+    capital = 10000
+    minPos = 2000
     watchlist = ['AGH.AX','BIT.AX', 'BOT.AX', 'CYP.AX', 'DRO.AX', 'DW8.AX', 'IMU.AX', 'ISD.AX', 
                  'MSB.AX', 'NXS.AX', 'OCC.AX', 'PAA.AX', 'Z1P.AX']
 
@@ -22,6 +23,7 @@ class Strategy:
 
     def run(self):
     
+        stratBuilder = StrategyBuilder()
         #Retrieve stock data
         tickers = self.getStocks()
 
@@ -33,9 +35,10 @@ class Strategy:
 
                 if i < stock.dailyCloseList.size:
 
-                    if self.getGreenLight(stock, i) == 'Buy':
+                    stratResult = stratBuilder.Strategy1(stock, i, '1d')
+                    if stratResult == 'Buy':
                         self.toPurchase.append(stock)
-                    elif (self.getGreenLight(stock, i) == 'Sell') & (self.toPurchase.__contains__(stock)):
+                    elif (stratResult == 'Sell') & (self.toPurchase.__contains__(stock)):
                         self.toPurchase.remove(stock)
 
                         for holding in self.holdings:
@@ -55,41 +58,15 @@ class Strategy:
                         while (intraday == day) & (j < stock.closeList.axes[0].date.size):
                             intraday = stock.closeList.axes[0].date[j]
 
-                            #DMI
-                            isMovingPos = stock.posDI[j] > stock.negDI[j]
-                            isMovingNeg = stock.posDI[j] < stock.negDI[j]
+                            stratResult = stratBuilder.Strategy1(stock, j, '5m')
 
-                            #RSI
-                            isRSIOversold = stock.rsi[j] < 30
-                            isRSIOverbought = stock.rsi[j] > 70
-
-                            #Stochastics
-                            isStochKOversold = stock.stochk[j] < 20
-                            isStochKOverbought = stock.stochk[j] > 80
-                            isStochDOversold = stock.stochd[j] < 20
-                            isStochDOverbought = stock.stochd[j] > 80
-
-                            stochCrossedUp = (stock.stochk[j] > stock.stochd[j]) & (stock.stochk[j - 1] < stock.stochd[j - 1])
-                            stochCrossedDown = (stock.stochk[j] < stock.stochd[j]) & (stock.stochk[j - 1] > stock.stochd[j - 1])
-
-                            stochBuy = isStochKOversold & stochCrossedUp
-                            stochSell = isStochKOverbought & stochCrossedDown
-
-                            #Buy Indicator
-                            if isMovingPos:
-                                if (isRSIOversold | stochBuy):
-                                    self.buy(stock, stock.closeList[j])
-                            elif (isRSIOversold & stochBuy):
+                            if stratResult == 'Buy':
                                 self.buy(stock, stock.closeList[j])
-
-                            #Sell Indicator
-                            if self.haveHolding(stock):
-                                if stochSell | isRSIOverbought:
-                                    #Can retrieve number of holdings that can sell and combine into
-                                    for holding in self.holdings:
-                                        if holding.stock == stock:
-                                            if stock.closeList[j] > holding.boughtAt:
-                                                self.sell(holding, stock.closeList[j])
+                            elif (stratResult == 'Sell') & (self.haveHolding(stock)):
+                                for holding in self.holdings:
+                                    if holding.stock == stock:
+                                        if stock.closeList[j] > holding.boughtAt:
+                                            self.sell(holding, stock.closeList[j])
 
                             j+=1
                         j = 0

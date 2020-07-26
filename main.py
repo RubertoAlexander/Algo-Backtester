@@ -1,6 +1,6 @@
-from strategy1 import Strategy
+from System import System
 
 if __name__ == "__main__":
     #Run Strategy
-    s1 = Strategy()
-    s1.run()
+    s = System()
+    s.run()
