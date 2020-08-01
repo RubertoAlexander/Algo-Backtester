@@ -10,8 +10,14 @@ class System:
     FEES = 10
     capital = 10000
     minPos = 2000
-    watchlist = ['AGH.AX','BIT.AX', 'BOT.AX', 'CYP.AX', 'DRO.AX', 'DW8.AX', 'IMU.AX', 'ISD.AX', 
-                 'MSB.AX', 'NXS.AX', 'OCC.AX', 'PAA.AX', 'Z1P.AX']
+    watchlist = ['CGL.AX', 'OCL.AX', 'TNE.AX', 'BVS.AX', 'XRF.AX', 'PME.AX', 'EOS.AX', 'EOF.AX', 
+                'EML.AX', 'PPS.AX', 'HUB.AX', 'APX.AX', 'WTC.AX', 'NAN.AX', 'BOT.AX', 'MVP.AX', 
+                'CYP.AX', 'ALU.AX', 'ZNO.AX', 'PCK.AX', 'CUV.AX', 'IRE.AX', 'PNV.AX', 'TLX.AX', 
+                'RAP.AX', 'SPL.AX', 'NEA.AX', 'ANO.AX', 'GSS.AX', 'TTB.AX', 'SKF.AX', 'MSB.AX', 
+                'APT.AX', 'FLC.AX', 'KZA.AX', 'PBH.AX', 'PPH.AX', 'WSP.AX', 'AVH.AX',
+                'OCC.AX', 'TYR.AX', 'THC.AX', 'ADS.AX', 'LVT.AX', 'IMU.AX', 'BIT.AX', 'SWF.AX', 
+                'BRN.AX', 'CDY.AX', 'RAC.AX', 'PAA.AX', 'BUD.AX', 'PIQ.AX', 'DRO.AX']
+
 
     toPurchase = []
     holdings = []
@@ -27,34 +33,38 @@ class System:
         #Retrieve stock data
         tickers = self.getStocks()
 
-        i = 14
+        i = 14 #Start at 14 to retrieve indicator data
         j = 0
         #Loop through each day
         while i < tickers[0].dailyCloseList.size:
             for stock in tickers:
-
+                
                 if i < stock.dailyCloseList.size:
 
+                    #Get Buy/Sell result from Strategy
                     stratResult = stratBuilder.Strategy1(stock, i, '1d')
                     if stratResult == 'Buy':
-                        self.toPurchase.append(stock)
+                        self.toPurchase.append(stock) #Add stock to purchase once indicator hits
                     elif (stratResult == 'Sell') & (self.toPurchase.__contains__(stock)):
-                        self.toPurchase.remove(stock)
+                        self.toPurchase.remove(stock) #Remove stock to purchase in the future
 
+                        #Sell stock if held
                         for holding in self.holdings:
                             if holding.stock == stock:
                                 self.sell(holding, stock.dailyCloseList[i])
 
-                    day = stock.dailyCloseList.axes[0].date[i]
+                    day = stock.dailyCloseList.axes[0].date[i] #Date
 
+                    #If cleared to purchase go through intraday indicators
                     if self.toPurchase.__contains__(stock):
-                        intraday = stock.closeList.axes[0].date[j]
+                        intraday = stock.closeList.axes[0].date[j] #Intraday date
 
                         while intraday < day:
                             #Move date forward if needing to
                             intraday = stock.closeList.axes[0].date[j]
                             j+=1
 
+                        #Get Buy/Sell indicator for each interval intraday
                         while (intraday == day) & (j < stock.closeList.axes[0].date.size):
                             intraday = stock.closeList.axes[0].date[j]
 
@@ -82,6 +92,7 @@ class System:
         print('Value: ', value)
 
     def getStocks(self):
+        print('Retrieving Data...')
         stocks = []
         for stock in self.watchlist:
             ticker = Stock(stock)
@@ -95,36 +106,6 @@ class System:
             ticker.defineIndicators('5m')
         
         return stocks
-
-    def getGreenLight(self, stock, index):
-        #DMI
-        isMovingPos = stock.dailyPosDI[index] > stock.dailyNegDI[index]
-        isMovingNeg = stock.dailyPosDI[index] < stock.dailyNegDI[index]
-
-        #RSI
-        isRSIOversold = stock.dailyRSI[index] < 30
-        isRSIOverbought = stock.dailyRSI[index] > 70
-
-        #Stochastics
-        isStochKOversold = stock.dailyStochk[index] < 20
-        isStochKOverbought = stock.dailyStochk[index] > 80
-        isStochDOversold = stock.dailyStochd[index] < 20
-        isStochDOverbought = stock.dailyStochd[index] > 80
-
-        stochCrossedUp = (stock.dailyStochk[index] > stock.dailyStochd[index]) & (stock.dailyStochk[index - 1] < stock.dailyStochd[index - 1])
-        stochCrossedDown = (stock.dailyStochk[index] < stock.dailyStochd[index]) & (stock.dailyStochk[index - 1] > stock.dailyStochd[index - 1])
-
-        stochBuy = isStochKOversold & stochCrossedUp
-        stochSell = isStochKOverbought & stochCrossedDown
-
-        if isMovingPos:
-            if (isRSIOversold | stochBuy):
-                return 'Buy'
-        elif (isRSIOversold & stochBuy):
-            return 'Buy'
-
-        if stochSell | isRSIOverbought:
-            return 'Sell'
 
     def buy(self, stock, price):
         posSize = self.positionSize()
