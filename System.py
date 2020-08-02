@@ -9,7 +9,7 @@ from Holding import Holding
 class System:
     
     #Class Variables
-    RUN_DAILY = False
+    RUN_DAILY = True
     runningDate = ''
     FEES = 10
     capital = 10000
@@ -51,20 +51,24 @@ class System:
                     stratResult = stratBuilder.Strategy1(stock, i, '1d')
                     
                     if stratResult == 'Buy':
-                        self.RUN_DAILY if self.buy(stock, stock.dailyCloseList[i]) else self.toPurchase.append(stock)
+                        self.buy(stock, stock.dailyCloseList[i]) if self.RUN_DAILY else self.toPurchase.append(stock)
                     elif (stratResult == 'Sell') & (self.toPurchase.__contains__(stock)):
                         self.toPurchase.remove(stock)
 
                         #Sell stock if held
+                        toSell = []
                         for holding in self.holdings:
                             if holding.stock == stock:
-                                self.sell(holding, stock.dailyCloseList[i])
+                                toSell.append(holding)
+                        if len(toSell) > 0: self.sell(toSell, stock.dailyCloseList[i])
 
                     elif (stratResult == 'Sell') & (self.RUN_DAILY):
                         #Sell stock if held
+                        toSell = []
                         for holding in self.holdings:
                             if holding.stock == stock:
-                                self.sell(holding, stock.dailyCloseList[i])
+                                toSell.append(holding)
+                        if len(toSell) > 0: self.sell(toSell, stock.dailyCloseList[i])
 
                     #If cleared to purchase go through intraday indicators
                     if not self.RUN_DAILY:
@@ -86,9 +90,11 @@ class System:
                                     self.buy(stock, stock.closeList[j])
                                 elif (stratResult == 'Sell') & (self.haveHolding(stock)):
                                     for holding in self.holdings:
+                                        toSell = []
                                         if holding.stock == stock:
                                             if stock.closeList[j] > holding.boughtAt:
-                                                self.sell(holding, stock.closeList[j])
+                                                toSell.append(holding)
+                                    if len(toSell) > 0: self.sell(toSell, stock.closeList[j])
 
                                 j+=1
                             j = 0
@@ -108,7 +114,7 @@ class System:
         stocks = []
         dailyData = yf.download(
             tickers=self.watchlist,
-            period='3mo',
+            period='5y',
             interval='1d',
             group_by='ticker'
         )
@@ -146,11 +152,17 @@ class System:
 
             print(self.runningDate,': Bought', units, 'units of', stock.code, 'at', price)
 
-    def sell(self, holding, price):
-        self.capital += holding.units * price - self.FEES
-        self.holdings.remove(holding)
+    def sell(self, holdings, price):
+        units = 0
+        code = ''
+        for holding in holdings:
+            code = holding.stock.code
+            units += holding.units
+            self.holdings.remove(holding)
+
+        self.capital += units * price - self.FEES
         self.sellCount += 1
-        print(self.runningDate,': Sold', holding.units, 'units of', holding.stock.code, 'at', price)
+        print(self.runningDate,': Sold', units, 'units of', code, 'at', price)
 
     def positionSize(self):
         if self.capital * self.risk < self.minPos:
