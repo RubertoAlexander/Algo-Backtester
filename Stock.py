@@ -8,22 +8,21 @@ class Stock:
         self.ticker = yf.Ticker(code)
         self.greenLight = False
 
-    def getData(self, period, interval):
-        history = self.ticker.history(period, interval)
-        history = history.drop(columns=['Volume', 'Dividends', 'Stock Splits'])
+    def setData(self, data, interval):
+        #history = history.drop(columns=['Volume', 'Dividends', 'Stock Splits'])
         
         if interval == '1d':
-            self.dailyHistory = history
-            self.dailyOpenList = history['Open']
-            self.dailyCloseList = history['Close']
-            self.dailyHighList = history['High']
-            self.dailyLowList = history['Low']
+            self.dailyHistory = data
+            self.dailyOpenList = data['Open']
+            self.dailyCloseList = data['Close']
+            self.dailyHighList = data['High']
+            self.dailyLowList = data['Low']
         else:
-            self.history = history
-            self.openList = history['Open']
-            self.closeList = history['Close']
-            self.highList = history['High']
-            self.lowList = history['Low']
+            self.history = data
+            self.openList = data['Open']
+            self.closeList = data['Close']
+            self.highList = data['High']
+            self.lowList = data['Low']
 
     def defineIndicators(self, interval):
 
