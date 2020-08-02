@@ -13,16 +13,16 @@ class System:
     runningDate = ''
     FEES = 10
     capital = 10000
+    profit = 0
     risk = 0.1
-    minPos = 1000
+    minPos = capital * risk
     watchlist = ['CGL.AX', 'OCL.AX', 'TNE.AX', 'BVS.AX', 'XRF.AX', 'PME.AX', 'EOS.AX', 'EOF.AX', 
                 'EML.AX', 'PPS.AX', 'HUB.AX', 'APX.AX', 'WTC.AX', 'NAN.AX', 'BOT.AX', 'MVP.AX', 
                 'CYP.AX', 'ALU.AX', 'ZNO.AX', 'PCK.AX', 'CUV.AX', 'IRE.AX', 'PNV.AX', 'TLX.AX', 
                 'RAP.AX', 'SPL.AX', 'NEA.AX', 'ANO.AX', 'GSS.AX', 'TTB.AX', 'SKF.AX', 'MSB.AX', 
-                'APT.AX', 'FLC.AX', 'KZA.AX', 'PBH.AX', 'PPH.AX', 'WSP.AX', 'AVH.AX',
+                'APT.AX', 'FLC.AX', 'KZA.AX', 'PBH.AX', 'PPH.AX', 'WSP.AX',
                 'OCC.AX', 'TYR.AX', 'THC.AX', 'ADS.AX', 'LVT.AX', 'IMU.AX', 'BIT.AX', 'SWF.AX', 
                 'BRN.AX', 'CDY.AX', 'RAC.AX', 'PAA.AX', 'BUD.AX', 'PIQ.AX', 'DRO.AX']
-
 
     toPurchase = []
     holdings = []
@@ -63,10 +63,10 @@ class System:
                         if len(toSell) > 0: self.sell(toSell, stock.dailyCloseList[i])
 
                     elif (stratResult == 'Sell') & (self.RUN_DAILY):
-                        #Sell stock if held
+                        #Sell stock if greater than what was bought at
                         toSell = []
                         for holding in self.holdings:
-                            if holding.stock == stock:
+                            if (holding.stock == stock) & (stock.dailyCloseList[i] > holding.boughtAt):
                                 toSell.append(holding)
                         if len(toSell) > 0: self.sell(toSell, stock.dailyCloseList[i])
 
@@ -114,7 +114,9 @@ class System:
         stocks = []
         dailyData = yf.download(
             tickers=self.watchlist,
-            period='5y',
+            start='2020-06-16',
+            end='2020-08-02',
+            # period='1mo',
             interval='1d',
             group_by='ticker'
         )
@@ -126,7 +128,6 @@ class System:
                 group_by='ticker'
             )
                 
-
         for stock in self.watchlist:
             ticker = Stock(stock)
             stocks.append(ticker)
@@ -147,10 +148,11 @@ class System:
             
             units = int(posSize / price)
             self.holdings.append(Holding(stock, units, price))
-            self.capital -= (price * units) + self.FEES
+            self.capital -= (price * units)
+            self.capital -= self.FEES
             self.buyCount += 1
 
-            print(self.runningDate,': Bought', units, 'units of', stock.code, 'at', price)
+            print(self.runningDate,': Bought', units, 'units of', stock.code, 'at', price, '|', self.capital)
 
     def sell(self, holdings, price):
         units = 0
@@ -158,17 +160,30 @@ class System:
         for holding in holdings:
             code = holding.stock.code
             units += holding.units
+
+            self.capital += holding.units * price
+            self.profit += holding.units * price - holding.units * holding.boughtAt
+
             self.holdings.remove(holding)
 
-        self.capital += units * price - self.FEES
+        self.capital -= self.FEES
         self.sellCount += 1
-        print(self.runningDate,': Sold', units, 'units of', code, 'at', price)
+        print(self.runningDate,': Sold', units, 'units of', code, 'at', price, '|', self.capital)
 
     def positionSize(self):
-        if self.capital * self.risk < self.minPos:
-            return self.minPos - self.FEES
-        else: 
-            return self.capital * self.risk - self.FEES
+        equity = self.capital + self.profit
+        positionSize = equity * self.risk
+
+        # Have funds available
+        if self.capital > self.minPos:
+            if positionSize < self.minPos:
+                return self.minPos - self.FEES
+            elif positionSize > self.capital:
+                return self.capital - self.FEES
+            else: 
+                return positionSize - self.FEES
+        else:
+            return 0
 
     def haveHolding(self, stock):
         for holding in self.holdings:
@@ -176,4 +191,3 @@ class System:
                 return True
         
         return False
-        
