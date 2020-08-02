@@ -1,15 +1,13 @@
-import yfinance as yf
+
 from talib._ta_lib import *
 
 class Stock:
 
     def __init__(self, code):
         self.code = code
-        self.ticker = yf.Ticker(code)
         self.greenLight = False
 
     def setData(self, data, interval):
-        #history = history.drop(columns=['Volume', 'Dividends', 'Stock Splits'])
         
         if interval == '1d':
             self.dailyHistory = data
