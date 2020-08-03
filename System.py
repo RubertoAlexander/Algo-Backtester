@@ -12,9 +12,9 @@ class System:
     RUN_DAILY = True
     runningDate = ''
     FEES = 10
-    capital = 10000
+    capital = 15000
     profit = 0
-    risk = 0.1
+    risk = 0.25
     minPos = capital * risk
     watchlist = ['CGL.AX', 'OCL.AX', 'TNE.AX', 'BVS.AX', 'XRF.AX', 'PME.AX', 'EOS.AX', 'EOF.AX', 
                 'EML.AX', 'PPS.AX', 'HUB.AX', 'APX.AX', 'WTC.AX', 'NAN.AX', 'BOT.AX', 'MVP.AX', 
@@ -58,7 +58,7 @@ class System:
                         #Sell stock if held
                         toSell = []
                         for holding in self.holdings:
-                            if holding.stock == stock:
+                            if holding.stock.code == stock.code:
                                 toSell.append(holding)
                         if len(toSell) > 0: self.sell(toSell, stock.dailyCloseList[i])
 
@@ -66,7 +66,7 @@ class System:
                         #Sell stock if greater than what was bought at
                         toSell = []
                         for holding in self.holdings:
-                            if (holding.stock == stock) & (stock.dailyCloseList[i] > holding.boughtAt):
+                            if (holding.stock.code == stock.code) & (stock.dailyCloseList[i] > holding.boughtAt):
                                 toSell.append(holding)
                         if len(toSell) > 0: self.sell(toSell, stock.dailyCloseList[i])
 
@@ -89,9 +89,10 @@ class System:
                                 if stratResult == 'Buy':
                                     self.buy(stock, stock.closeList[j])
                                 elif (stratResult == 'Sell') & (self.haveHolding(stock)):
+                                    toSell = []
                                     for holding in self.holdings:
-                                        toSell = []
-                                        if holding.stock == stock:
+                                        if holding.stock.code == stock.code:
+                                            print('Checking', holding.stock.code, 'at', holding.boughtAt)
                                             if stock.closeList[j] > holding.boughtAt:
                                                 toSell.append(holding)
                                     if len(toSell) > 0: self.sell(toSell, stock.closeList[j])
@@ -114,17 +115,19 @@ class System:
         stocks = []
         dailyData = yf.download(
             tickers=self.watchlist,
-            start='2020-06-16',
-            end='2020-08-02',
-            # period='1mo',
+            # start='2020-06-16',
+            # end='2020-08-02',
+            period='1y',
             interval='1d',
             group_by='ticker'
         )
         if not self.RUN_DAILY:
             intraData = yf.download(
                 tickers=self.watchlist,
-                period='1mo',
-                interval='30m',
+                start='2020-06-05',
+                end='2020-08-02',
+                # period='1mo',
+                interval='15m',
                 group_by='ticker'
             )
                 
@@ -157,6 +160,7 @@ class System:
     def sell(self, holdings, price):
         units = 0
         code = ''
+        print('Selling', len(holdings), 'holdings')
         for holding in holdings:
             code = holding.stock.code
             units += holding.units
