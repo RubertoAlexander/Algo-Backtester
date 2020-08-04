@@ -7,6 +7,9 @@ class Stock:
         self.code = code
         self.greenLight = False
 
+    def setCurrentPrice(self, price):
+        self.currentPrice = price        
+
     def setData(self, data, interval):
         
         if interval == '1d':
