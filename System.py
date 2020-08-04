@@ -12,10 +12,12 @@ class System:
     RUN_DAILY = True
     runningDate = ''
     FEES = 10
-    capital = 15000
+    capital = 10000
     profit = 0
     risk = 0.25
     minPos = capital * risk
+    STOP_LOSS = 0
+
     watchlist = ['CGL.AX', 'OCL.AX', 'TNE.AX', 'BVS.AX', 'XRF.AX', 'PME.AX', 'EOS.AX', 'EOF.AX', 
                 'EML.AX', 'PPS.AX', 'HUB.AX', 'APX.AX', 'WTC.AX', 'NAN.AX', 'BOT.AX', 'MVP.AX', 
                 'CYP.AX', 'ALU.AX', 'ZNO.AX', 'PCK.AX', 'CUV.AX', 'IRE.AX', 'PNV.AX', 'TLX.AX', 
@@ -47,6 +49,17 @@ class System:
                 
                 if i < stock.dailyCloseList.size:
 
+                    stock.setCurrentPrice(stock.dailyCloseList[i])
+                    toSell = []
+                    if self.STOP_LOSS > 0:
+                        # Sell if hit stop loss
+                        for holding in self.holdings:
+                            if holding.stock.code == stock.code:
+                                if holding.stock.currentPrice * holding.units <= holding.boughtAt * holding.units * (1-self.STOP_LOSS):
+                                    print('Hit stop loss for', stock.code)
+                                    toSell.append(holding)
+                        if len(toSell) > 0: self.sell(toSell, stock.dailyCloseList[i])
+
                     #Get Buy/Sell result from Strategy
                     stratResult = stratBuilder.Strategy1(stock, i, '1d')
                     
@@ -58,7 +71,7 @@ class System:
                         #Sell stock if held
                         toSell = []
                         for holding in self.holdings:
-                            if holding.stock.code == stock.code:
+                            if (holding.stock.code == stock.code) & (stock.dailyCloseList[i] > holding.boughtAt):
                                 toSell.append(holding)
                         if len(toSell) > 0: self.sell(toSell, stock.dailyCloseList[i])
 
@@ -75,13 +88,14 @@ class System:
                         if self.toPurchase.__contains__(stock):
                             intraday = stock.closeList.axes[0].date[j] #Intraday date
 
-                            while intraday < self.runningDate:
+                            while (intraday < self.runningDate) & (j < stock.closeList.axes[0].date.size):
                                 #Move date forward if needing to
                                 intraday = stock.closeList.axes[0].date[j]
                                 j+=1
 
                             #Get Buy/Sell indicator for each interval intraday
                             while (intraday == self.runningDate) & (j < stock.closeList.axes[0].date.size):
+                                stock.setCurrentPrice(stock.closeList[j])
                                 intraday = stock.closeList.axes[0].date[j]
 
                                 stratResult = stratBuilder.Strategy1(stock, j, '30m')
@@ -92,7 +106,6 @@ class System:
                                     toSell = []
                                     for holding in self.holdings:
                                         if holding.stock.code == stock.code:
-                                            print('Checking', holding.stock.code, 'at', holding.boughtAt)
                                             if stock.closeList[j] > holding.boughtAt:
                                                 toSell.append(holding)
                                     if len(toSell) > 0: self.sell(toSell, stock.closeList[j])
@@ -115,19 +128,19 @@ class System:
         stocks = []
         dailyData = yf.download(
             tickers=self.watchlist,
-            # start='2020-06-16',
-            # end='2020-08-02',
-            period='1y',
+            start='2020-06-01',
+            end='2020-08-02',
+            # period='6mo',
             interval='1d',
             group_by='ticker'
         )
         if not self.RUN_DAILY:
             intraData = yf.download(
                 tickers=self.watchlist,
-                start='2020-06-05',
+                start='2020-06-06',
                 end='2020-08-02',
                 # period='1mo',
-                interval='15m',
+                interval='30m',
                 group_by='ticker'
             )
                 
@@ -157,10 +170,10 @@ class System:
 
             print(self.runningDate,': Bought', units, 'units of', stock.code, 'at', price, '|', self.capital)
 
+
     def sell(self, holdings, price):
         units = 0
         code = ''
-        print('Selling', len(holdings), 'holdings')
         for holding in holdings:
             code = holding.stock.code
             units += holding.units
