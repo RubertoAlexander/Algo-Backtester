@@ -1,6 +1,7 @@
 import pandas as pd
 import yfinance as yf
 import datetime
+import csv
 
 from StrategyBuilder import StrategyBuilder
 from Stock import Stock
@@ -14,7 +15,7 @@ class System:
     FEES = 10
     capital = 10000
     profit = 0
-    risk = 0.25
+    risk = 0.1
     minPos = capital * risk
     STOP_LOSS = 0
 
@@ -28,6 +29,8 @@ class System:
 
     toPurchase = []
     holdings = []
+
+    valueDict = dict()
 
     #Instance Variables
     def __init__(self):
@@ -45,6 +48,13 @@ class System:
         #Loop through each day
         while i < tickers[0].dailyCloseList.size:
             self.runningDate = tickers[0].dailyCloseList.axes[0].date[i]
+
+            # Logging value for charting
+            value = self.capital
+            for holding in self.holdings:
+                value += holding.units * holding.stock.dailyCloseList[i]
+            self.valueDict[self.runningDate] = value
+
             for stock in tickers:
                 
                 if i < stock.dailyCloseList.size:
@@ -119,26 +129,29 @@ class System:
 
         value = self.capital
         for holding in self.holdings:
-            value += holding.units * holding.stock.dailyCloseList[holding.stock.dailyCloseList.size - 1]
+            value += holding.units * holding.stock.dailyCloseList[holding.stock.dailyCloseList.size - 2]
 
         print('Value: ', value)
+        print('Profit:', self.profit)
+
+        self.writeCSV()
 
     def getStocks(self):
         print('Retrieving Data...')
         stocks = []
         dailyData = yf.download(
             tickers=self.watchlist,
-            start='2020-06-01',
-            end='2020-08-02',
-            # period='6mo',
+            # start='2018-01-01',
+            # end='2018-12-30',
+            period='6mo',
             interval='1d',
             group_by='ticker'
         )
         if not self.RUN_DAILY:
             intraData = yf.download(
                 tickers=self.watchlist,
-                start='2020-06-06',
-                end='2020-08-02',
+                start='2020-06-07',
+                end='2020-08-05',
                 # period='1mo',
                 interval='30m',
                 group_by='ticker'
@@ -184,6 +197,7 @@ class System:
             self.holdings.remove(holding)
 
         self.capital -= self.FEES
+        self.profit -= self.FEES
         self.sellCount += 1
         print(self.runningDate,': Sold', units, 'units of', code, 'at', price, '|', self.capital)
 
@@ -208,3 +222,9 @@ class System:
                 return True
         
         return False
+
+    def writeCSV(self):
+
+        with open('value.csv', 'w') as f:
+            for key in self.valueDict.keys():
+                f.write("%s,%s\n"%(key, self.valueDict[key]))
