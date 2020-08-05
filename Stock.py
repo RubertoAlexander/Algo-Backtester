@@ -1,29 +1,29 @@
-import yfinance as yf
+
 from talib._ta_lib import *
 
 class Stock:
 
     def __init__(self, code):
         self.code = code
-        self.ticker = yf.Ticker(code)
         self.greenLight = False
 
-    def getData(self, period, interval):
-        history = self.ticker.history(period, interval)
-        history = history.drop(columns=['Volume', 'Dividends', 'Stock Splits'])
+    def setCurrentPrice(self, price):
+        self.currentPrice = price        
+
+    def setData(self, data, interval):
         
         if interval == '1d':
-            self.dailyHistory = history
-            self.dailyOpenList = history['Open']
-            self.dailyCloseList = history['Close']
-            self.dailyHighList = history['High']
-            self.dailyLowList = history['Low']
+            self.dailyHistory = data
+            self.dailyOpenList = data['Open']
+            self.dailyCloseList = data['Close']
+            self.dailyHighList = data['High']
+            self.dailyLowList = data['Low']
         else:
-            self.history = history
-            self.openList = history['Open']
-            self.closeList = history['Close']
-            self.highList = history['High']
-            self.lowList = history['Low']
+            self.history = data
+            self.openList = data['Open']
+            self.closeList = data['Close']
+            self.highList = data['High']
+            self.lowList = data['Low']
 
     def defineIndicators(self, interval):
 
