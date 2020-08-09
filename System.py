@@ -10,7 +10,7 @@ from Holding import Holding
 class System:
     
     #Class Variables
-    RUN_DAILY = True
+    RUN_DAILY = False
     runningDate = ''
     FEES = 10
     capital = 10000
@@ -46,20 +46,20 @@ class System:
         i = 14 #Start at 14 to retrieve indicator data
         j = 0
         #Loop through each day
-        while i < tickers[0].dailyCloseList.size:
-            self.runningDate = tickers[0].dailyCloseList.axes[0].date[i]
+        while i < tickers[0].closeList.size:
+            self.runningDate = tickers[0].closeList.axes[0].date[i]
 
             # Logging value for charting
             value = self.capital
             for holding in self.holdings:
-                value += holding.units * holding.stock.dailyCloseList[i]
+                value += holding.units * holding.stock.closeList[i]
             self.valueDict[self.runningDate] = value
 
             for stock in tickers:
                 
-                if i < stock.dailyCloseList.size:
+                if i < stock.closeList.size:
 
-                    stock.setCurrentPrice(stock.dailyCloseList[i])
+                    stock.setCurrentPrice(stock.closeList[i])
                     toSell = []
                     if self.STOP_LOSS > 0:
                         # Sell if hit stop loss
@@ -68,60 +68,59 @@ class System:
                                 if holding.stock.currentPrice * holding.units <= holding.boughtAt * holding.units * (1-self.STOP_LOSS):
                                     print('Hit stop loss for', stock.code)
                                     toSell.append(holding)
-                        if len(toSell) > 0: self.sell(toSell, stock.dailyCloseList[i])
+                        if len(toSell) > 0: self.sell(toSell, stock.closeList[i])
 
                     #Get Buy/Sell result from Strategy
-                    stratResult = stratBuilder.Strategy1(stock, i, '1d')
+                    stratResult = stratBuilder.Strategy2(stock, i)
                     
                     if stratResult == 'Buy':
-                        self.buy(stock, stock.dailyCloseList[i]) if self.RUN_DAILY else self.toPurchase.append(stock)
-                    elif (stratResult == 'Sell') & (self.toPurchase.__contains__(stock)):
-                        self.toPurchase.remove(stock)
+                        self.buy(stock, stock.closeList[i], 1) #if self.RUN_DAILY else self.toPurchase.append(stock)
+                    elif stratResult == 'Buy2':
+                        self.buy(stock, stock.closeList[i], 0.5)
+                    elif (stratResult == 'Sell') & (self.haveHolding(stock)): #& (self.toPurchase.__contains__(stock)):
+                        # self.toPurchase.remove(stock)
 
-                        #Sell stock if held
-                        toSell = []
-                        for holding in self.holdings:
-                            if (holding.stock.code == stock.code) & (stock.dailyCloseList[i] > holding.boughtAt):
-                                toSell.append(holding)
-                        if len(toSell) > 0: self.sell(toSell, stock.dailyCloseList[i])
+                        self.sell(stock, stock.closeList[i], 1)
+                    elif  (stratResult == 'Sell2') & (self.haveHolding(stock)):
+                        self.sell(stock, stock.closeList[i], 0.5)
 
-                    elif (stratResult == 'Sell') & (self.RUN_DAILY):
-                        #Sell stock if greater than what was bought at
-                        toSell = []
-                        for holding in self.holdings:
-                            if (holding.stock.code == stock.code) & (stock.dailyCloseList[i] > holding.boughtAt):
-                                toSell.append(holding)
-                        if len(toSell) > 0: self.sell(toSell, stock.dailyCloseList[i])
+                    # elif (stratResult == 'Sell') & (self.RUN_DAILY):
+                    #     #Sell stock if greater than what was bought at
+                    #     toSell = []
+                    #     for holding in self.holdings:
+                    #         if (holding.stock.code == stock.code) & (stock.dailyCloseList[i] > holding.boughtAt):
+                    #             toSell.append(holding)
+                    #     if len(toSell) > 0: self.sell(toSell, stock.dailyCloseList[i])
 
-                    #If cleared to purchase go through intraday indicators
-                    if not self.RUN_DAILY:
-                        if self.toPurchase.__contains__(stock):
-                            intraday = stock.closeList.axes[0].date[j] #Intraday date
+                    # #If cleared to purchase go through intraday indicators
+                    # if not self.RUN_DAILY:
+                    #     if self.toPurchase.__contains__(stock):
+                    #         intraday = stock.closeList.axes[0].date[j] #Intraday date
 
-                            while (intraday < self.runningDate) & (j < stock.closeList.axes[0].date.size):
-                                #Move date forward if needing to
-                                intraday = stock.closeList.axes[0].date[j]
-                                j+=1
+                    #         while (intraday < self.runningDate) & (j < stock.closeList.axes[0].date.size):
+                    #             #Move date forward if needing to
+                    #             intraday = stock.closeList.axes[0].date[j]
+                    #             j+=1
 
-                            #Get Buy/Sell indicator for each interval intraday
-                            while (intraday == self.runningDate) & (j < stock.closeList.axes[0].date.size):
-                                stock.setCurrentPrice(stock.closeList[j])
-                                intraday = stock.closeList.axes[0].date[j]
+                    #         #Get Buy/Sell indicator for each interval intraday
+                    #         while (intraday == self.runningDate) & (j < stock.closeList.axes[0].date.size):
+                    #             stock.setCurrentPrice(stock.closeList[j])
+                    #             intraday = stock.closeList.axes[0].date[j]
 
-                                stratResult = stratBuilder.Strategy1(stock, j, '30m')
+                    #             stratResult = stratBuilder.Strategy1(stock, j, '30m')
 
-                                if stratResult == 'Buy':
-                                    self.buy(stock, stock.closeList[j])
-                                elif (stratResult == 'Sell') & (self.haveHolding(stock)):
-                                    toSell = []
-                                    for holding in self.holdings:
-                                        if holding.stock.code == stock.code:
-                                            if stock.closeList[j] > holding.boughtAt:
-                                                toSell.append(holding)
-                                    if len(toSell) > 0: self.sell(toSell, stock.closeList[j])
+                    #             if stratResult == 'Buy':
+                    #                 self.buy(stock, stock.closeList[j])
+                    #             elif (stratResult == 'Sell') & (self.haveHolding(stock)):
+                    #                 toSell = []
+                    #                 for holding in self.holdings:
+                    #                     if holding.stock.code == stock.code:
+                    #                         if stock.closeList[j] > holding.boughtAt:
+                    #                             toSell.append(holding)
+                    #                 if len(toSell) > 0: self.sell(toSell, stock.closeList[j])
 
-                                j+=1
-                            j = 0
+                    #             j+=1
+                    #         j = 0
             i+=1
 
         print('Buys: ', self.buyCount, '\n', 'Sells: ', self.sellCount)
@@ -129,7 +128,7 @@ class System:
 
         value = self.capital
         for holding in self.holdings:
-            value += holding.units * holding.stock.dailyCloseList[holding.stock.dailyCloseList.size - 2]
+            value += holding.units * holding.stock.closeList[holding.stock.closeList.size - 2]
 
         print('Value: ', value)
         print('Profit:', self.profit)
@@ -150,10 +149,10 @@ class System:
         if not self.RUN_DAILY:
             intraData = yf.download(
                 tickers=self.watchlist,
-                start='2020-06-07',
-                end='2020-08-05',
+                start='2020-06-11',
+                end='2020-08-09',
                 # period='1mo',
-                interval='30m',
+                interval='60m',
                 group_by='ticker'
             )
                 
@@ -171,8 +170,8 @@ class System:
         
         return stocks
 
-    def buy(self, stock, price):
-        posSize = self.positionSize()
+    def buy(self, stock, price, allocation):
+        posSize = self.positionSize(allocation)
         if posSize > 0:
             
             units = int(posSize / price)
@@ -184,31 +183,36 @@ class System:
             print(self.runningDate,': Bought', units, 'units of', stock.code, 'at', price, '|', self.capital)
 
 
-    def sell(self, holdings, price):
+    def sell(self, stock, price, allocation):
         units = 0
-        code = ''
-        for holding in holdings:
-            code = holding.stock.code
-            units += holding.units
 
-            self.capital += holding.units * price
-            self.profit += holding.units * price - holding.units * holding.boughtAt
+        #Sell all held stocks
+        for holding in self.holdings:
+            if (holding.stock.code == stock.code) & (price > holding.boughtAt):
+                posSize = int(holding.units * allocation)
+                units += posSize
+                self.capital += posSize * price
+                self.profit += posSize * price - posSize * holding.boughtAt
+                holding.setUnits(holding.units - posSize)
 
-            self.holdings.remove(holding)
+                # Remove from holdings if selling all units
+                if holding.units == 0:
+                    self.holdings.remove(holding)
 
-        self.capital -= self.FEES
-        self.profit -= self.FEES
-        self.sellCount += 1
-        print(self.runningDate,': Sold', units, 'units of', code, 'at', price, '|', self.capital)
+        if units > 0:
+            self.capital -= self.FEES
+            self.profit -= self.FEES
+            self.sellCount += 1
+            print(self.runningDate,': Sold', units, 'units of', stock.code, 'at', price, '|', self.capital)
 
-    def positionSize(self):
+    def positionSize(self, allocation):
         equity = self.capital + self.profit
-        positionSize = equity * self.risk
+        positionSize = equity * self.risk * allocation
 
         # Have funds available
-        if self.capital > self.minPos:
+        if self.capital > self.minPos * allocation:
             if positionSize < self.minPos:
-                return self.minPos - self.FEES
+                return self.minPos * allocation - self.FEES
             elif positionSize > self.capital:
                 return self.capital - self.FEES
             else: 
