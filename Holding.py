@@ -5,5 +5,8 @@ class Holding:
         self.stock = stock
         self.units = units
         self.boughtAt = price
+
+    def setUnits(self, units):
+        self.units = units
         
         
