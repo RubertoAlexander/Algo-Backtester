@@ -60,6 +60,8 @@ class StrategyBuilder:
         elif isRSIOverbought: #& (not indicators.get('isStochKOverbought')) & indicators.get('stochKGreaterD'):
             if not isStochKOverbought:
                 return 'Sell'
+        # elif stochCrossedDown and stock.stochd[index] > 60:
+        #     return 'Sell2'
 
     def Strategy2(self, stock, index):
 
