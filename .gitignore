@@ -3,6 +3,7 @@ Strategy1.txt
 Strategy2.txt
 watchlist.py
 value.csv
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
