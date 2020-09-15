@@ -1,3 +1,9 @@
+#Program features
+Strategy1.txt
+Strategy2.txt
+watchlist.py
+value.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
