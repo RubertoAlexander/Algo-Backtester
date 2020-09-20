@@ -112,7 +112,7 @@ class System:
         print('Retrieving Data...')
         stocks = []
         dailyData = yf.download(
-            tickers=self.watchlist,
+            tickers=watchlist,
             # start='2019-01-01',
             # end='2019-12-30',
             period=self.PERIOD,
@@ -120,11 +120,11 @@ class System:
             group_by='ticker'
         )
                 
-        for stock in self.watchlist:
+        for stock in watchlist:
             ticker = Stock(stock)
             stocks.append(ticker)
             #Get daily data
-            ticker.setData(dailyData[stock], self.INTERVAL) if len(self.watchlist) > 1 else ticker.setData(dailyData, self.INTERVAL)
+            ticker.setData(dailyData[stock], self.INTERVAL) if len(watchlist) > 1 else ticker.setData(dailyData, self.INTERVAL)
             ticker.defineIndicators(self.INTERVAL)
         
         return stocks
